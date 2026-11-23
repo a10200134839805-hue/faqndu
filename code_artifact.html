@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>軍樂隊事故統整系統</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Noto Sans TC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f1f5f9;
+      color: #0f172a;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* Smooth scrolling for grade quick-jump */
+    html {
+      scroll-behavior: smooth;
+    }
+    /* Offset for sticky header when jumping to grades */
+    .grade-anchor {
+      scroll-margin-top: 118px;
+    }
+    /* Custom subtle scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+
+  <!-- Top Header -->
+  <header class="bg-slate-900 text-white shadow-md">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300 font-bold text-lg">
+          樂
+        </div>
+        <div>
+          <h1 class="text-lg sm:text-xl font-bold tracking-tight">軍樂隊事故統整系統</h1>
+          <p class="text-xs text-slate-400">自動比對名單・即時產出標準回報格式</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        id="btn-open-clear-modal"
+        class="px-3 py-2 text-xs sm:text-sm font-medium rounded-xl bg-slate-800 hover:bg-rose-600/90 text-slate-200 hover:text-white border border-slate-700 transition-colors cursor-pointer"
+      >
+        清空重填
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Configuration Controls -->
+  <section class="max-w-5xl mx-auto px-4 pt-5 pb-3">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4 sm:p-5 space-y-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <!-- 1. 統整範圍 -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+            統整範圍
+          </label>
+          <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+            <button
+              type="button"
+              id="scope-all"
+              onclick="setScope('all')"
+              class="py-2.5 px-3 rounded-lg text-sm font-semibold transition-all cursor-pointer bg-white text-indigo-600 shadow-sm"
+            >
+              全中隊統整
+            </button>
+            <button
+              type="button"
+              id="scope-sq4"
+              onclick="setScope('sq4')"
+              class="py-2.5 px-3 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:text-slate-900"
+            >
+              四中隊調查
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. 統整節次 -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+            統整節次
+          </label>
+          <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+            <button
+              type="button"
+              id="mode-single"
+              onclick="setMode('single')"
+              class="py-2.5 px-3 rounded-lg text-sm font-semibold transition-all cursor-pointer bg-white text-indigo-600 shadow-sm"
+            >
+              單一記事本
+            </button>
+            <button
+              type="button"
+              id="mode-78"
+              onclick="setMode('78')"
+              class="py-2.5 px-3 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:text-slate-900"
+            >
+              78節事故
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. 事故名稱輸入框 (僅「單一記事本」顯示，無預設值、下方無預設選項) -->
+      <div id="incident-title-container" class="pt-1 border-t border-slate-100">
+        <label for="incident-title-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+          事故名稱
+        </label>
+        <input
+          type="text"
+          id="incident-title-input"
+          value=""
+          placeholder="請輸入事故名稱"
+          autocomplete="off"
+          oninput="handleTitleChange(this.value)"
+          class="w-full px-3.5 py-2.5 text-sm sm:text-base bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+        />
+      </div>
+    </div>
+  </section>
+
+  <!-- Sticky Grade Progress Bar & Quick Navigation (僅「四中隊調查」顯示) -->
+  <div
+    id="sq4-sticky-bar"
+    class="hidden sticky top-0 z-40 bg-white/95 backdrop-blur-md border-y border-slate-200 shadow-sm transition-all"
+  >
+    <div class="max-w-5xl mx-auto px-4 py-2.5 space-y-2">
+      <!-- Progress Summary & Multi-color Bar -->
+      <div class="flex items-center justify-between text-xs sm:text-sm">
+        <span class="font-bold text-slate-800">
+          四中隊回覆進度：<span id="sq4-total-replied" class="text-indigo-600">0</span> / 36 員
+        </span>
+        <span id="sq4-total-percent" class="font-semibold text-slate-500">0%</span>
+      </div>
+
+      <!-- 4-Grade Colored Progress Bar -->
+      <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden flex gap-0.5">
+        <div id="prog-g4" class="h-full bg-indigo-500 transition-all duration-300" style="width: 0%" title="四年級"></div>
+        <div id="prog-g3" class="h-full bg-emerald-500 transition-all duration-300" style="width: 0%" title="三年級"></div>
+        <div id="prog-g2" class="h-full bg-amber-500 transition-all duration-300" style="width: 0%" title="二年級"></div>
+        <div id="prog-g1" class="h-full bg-rose-500 transition-all duration-300" style="width: 0%" title="一年級"></div>
+      </div>
+
+      <!-- Grade Quick-Jump Buttons (Always accessible on screen) -->
+      <div class="grid grid-cols-4 gap-1.5 sm:gap-2 pt-0.5">
+        <button
+          type="button"
+          onclick="scrollToGrade('grade-4')"
+          class="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 transition-colors cursor-pointer"
+        >
+          <span class="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
+          <span>四年級</span>
+          <span id="badge-g4" class="text-[11px] opacity-80">0/9</span>
+        </button>
+        <button
+          type="button"
+          onclick="scrollToGrade('grade-3')"
+          class="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 transition-colors cursor-pointer"
+        >
+          <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+          <span>三年級</span>
+          <span id="badge-g3" class="text-[11px] opacity-80">0/12</span>
+        </button>
+        <button
+          type="button"
+          onclick="scrollToGrade('grade-2')"
+          class="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 transition-colors cursor-pointer"
+        >
+          <span class="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+          <span>二年級</span>
+          <span id="badge-g2" class="text-[11px] opacity-80">0/10</span>
+        </button>
+        <button
+          type="button"
+          onclick="scrollToGrade('grade-1')"
+          class="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 transition-colors cursor-pointer"
+        >
+          <span class="w-2 h-2 rounded-full bg-rose-500 shrink-0"></span>
+          <span>一年級</span>
+          <span id="badge-g1" class="text-[11px] opacity-80">0/5</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Workspace -->
+  <main class="max-w-5xl mx-auto px-4 pt-3 space-y-6">
+
+    <!-- VIEW A: 全中隊統整 (4 Squadrons Textareas) -->
+    <section id="view-all-squadrons" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm sm:text-base font-bold text-slate-800">
+          各中隊事故貼上區（應到 68 員）
+        </h2>
+        <span id="all-sq-hint" class="text-xs text-slate-500">
+          請貼上各中隊回報文字
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- 一中隊 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4 flex flex-col">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-indigo-500"></span>一中隊
+            </span>
+            <button type="button" onclick="clearSquadronInput(0)" class="text-xs text-slate-400 hover:text-rose-500 px-2 py-1 rounded-lg transition-colors cursor-pointer">
+              清除
+            </button>
+          </div>
+          <textarea
+            id="sq-input-0"
+            rows="6"
+            oninput="handleSquadronInput(0, this.value)"
+            placeholder="請貼上一中隊事故回報..."
+            class="w-full flex-1 p-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white resize-y leading-relaxed"
+          ></textarea>
+        </div>
+
+        <!-- 二中隊 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4 flex flex-col">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>二中隊
+            </span>
+            <button type="button" onclick="clearSquadronInput(1)" class="text-xs text-slate-400 hover:text-rose-500 px-2 py-1 rounded-lg transition-colors cursor-pointer">
+              清除
+            </button>
+          </div>
+          <textarea
+            id="sq-input-1"
+            rows="6"
+            oninput="handleSquadronInput(1, this.value)"
+            placeholder="請貼上二中隊事故回報..."
+            class="w-full flex-1 p-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white resize-y leading-relaxed"
+          ></textarea>
+        </div>
+
+        <!-- 三中隊 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4 flex flex-col">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span>三中隊
+            </span>
+            <button type="button" onclick="clearSquadronInput(2)" class="text-xs text-slate-400 hover:text-rose-500 px-2 py-1 rounded-lg transition-colors cursor-pointer">
+              清除
+            </button>
+          </div>
+          <textarea
+            id="sq-input-2"
+            rows="6"
+            oninput="handleSquadronInput(2, this.value)"
+            placeholder="請貼上三中隊事故回報..."
+            class="w-full flex-1 p-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white resize-y leading-relaxed"
+          ></textarea>
+        </div>
+
+        <!-- 四中隊 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4 flex flex-col">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-rose-500"></span>四中隊
+            </span>
+            <button type="button" onclick="clearSquadronInput(3)" class="text-xs text-slate-400 hover:text-rose-500 px-2 py-1 rounded-lg transition-colors cursor-pointer">
+              清除
+            </button>
+          </div>
+          <textarea
+            id="sq-input-3"
+            rows="6"
+            oninput="handleSquadronInput(3, this.value)"
+            placeholder="請貼上四中隊事故回報..."
+            class="w-full flex-1 p-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white resize-y leading-relaxed"
+          ></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW B: 四中隊調查 (Individual Roll Call Survey - 36 Members) -->
+    <section id="view-sq4-survey" class="hidden space-y-5">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm sm:text-base font-bold text-slate-800">
+          四中隊個別事故調查（應到 36 員）
+        </h2>
+        <span class="text-xs text-slate-500">
+          未勾選且未填寫事故將自動列為「已聯絡未回覆」
+        </span>
+      </div>
+
+      <!-- Grade Containers Rendered Dynamically by JS -->
+      <div id="sq4-grades-wrapper" class="space-y-5"></div>
+    </section>
+
+    <!-- Generated Output Report Section -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4 sm:p-5 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+          <h2 class="text-base font-bold text-slate-900">統整結果預覽</h2>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Extra individual copy buttons shown only in 78節 mode -->
+          <div id="copy-78-sub-buttons" class="hidden flex items-center gap-2">
+            <button
+              type="button"
+              onclick="copyReport('p7')"
+              class="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+            >
+              複製第七節
+            </button>
+            <button
+              type="button"
+              onclick="copyReport('p8')"
+              class="px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+            >
+              複製第八節
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onclick="copyReport('all')"
+            class="px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white shadow-sm transition-all cursor-pointer"
+          >
+            一鍵複製統整結果
+          </button>
+        </div>
+      </div>
+
+      <textarea
+        id="output-report"
+        readonly
+        rows="18"
+        class="w-full p-4 text-sm sm:text-base font-mono bg-slate-900 text-slate-100 rounded-xl border border-slate-800 focus:outline-none leading-relaxed select-all"
+      ></textarea>
+    </section>
+
+  </main>
+
+  <!-- Custom Confirmation Modal (No native confirm/alert) -->
+  <div
+    id="clear-modal"
+    class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
+  >
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-sm w-full p-5 space-y-4">
+      <h3 class="text-base font-bold text-slate-900">確認清空資料？</h3>
+      <p class="text-sm text-slate-600">
+        這將會清除目前填寫的事故名稱、各中隊貼文以及四中隊調查紀錄，無法復原。
+      </p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button
+          type="button"
+          id="btn-cancel-clear"
+          class="px-4 py-2 text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+        >
+          取消
+        </button>
+        <button
+          type="button"
+          id="btn-confirm-clear"
+          class="px-4 py-2 text-sm font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer"
+        >
+          確定清空
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div
+    id="toast"
+    class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-opacity duration-200"
+  >
+    <div id="toast-msg" class="px-4 py-2.5 rounded-xl bg-slate-800 text-white text-sm font-medium shadow-lg">
+      已複製到剪貼簿
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. 固定名單與常數定義 (STRICT ORDER)
+    // =========================================================================
+
+    // 資料1：全中隊全員名單（68員，嚴格維持原始順序與空格格式）
+    const FULL_BAND_ROSTER = [
+      "周靖恩", "鐘偉峻", "曾昱瑋", "徐承煒",
+      "王家瑋", "吳其錚", "吳    漾", "張明祥",
+      "趙靖棠", "林鈺樺", "陳妤萱", "陳噢伽",
+      "賴冠廷", "陳建厤", "林裕翔", "周宇棟",
+      "簡郁庭", "陳祐安", "游承蒲", "林士詮",
+      "陳    琦", "黃品睿", "湯廷笙", "盧坤廷",
+      "劉宇桐", "石啟宏", "劉峻廷", "王芝妮",
+      "姜怜安", "石喬予", "陳仲伶", "吳若綺",
+      "呂欣瞳", "蔡均紘", "李祐任", "林昱安",
+      "龔佑澤", "何紹愷", "張廷維", "李彥宏",
+      "林富民", "董翊軒", "陳奕全", "蔡典宇",
+      "徐杰騏", "黃毓軒", "黃詩嵐", "陳宗佑",
+      "曹鈞諺", "李芯彤", "游致維", "徐子晴",
+      "王昶爲", "陳仕烜", "陳宥森", "陳鈺鈞",
+      "黃翔農", "藍欣怡", "阮品融", "楊涵榛",
+      "陳品亦", "陳誠泰", "方宥霖", "范子軒",
+      "胡學澤", "王子銓", "余恩緯", "蔡名喬"
+    ];
+
+    // 四中隊全員名單（36員，依年級與原始順序排列）
+    const SQ4_GRADES = [
+      {
+        id: "grade-4",
+        key: "g4",
+        label: "四年級",
+        colorDot: "bg-indigo-500",
+        headerBg: "bg-indigo-50 border-indigo-200 text-indigo-900",
+        badgeBg: "bg-indigo-100 text-indigo-700",
+        members: [
+          "張明祥", "賴冠廷", "周靖恩", "徐承煒",
+          "盧坤廷", "陳祐安", "王家瑋", "黃品睿",
+          "湯廷笙"
+        ]
+      },
+      {
+        id: "grade-3",
+        key: "g3",
+        label: "三年級",
+        colorDot: "bg-emerald-500",
+        headerBg: "bg-emerald-50 border-emerald-200 text-emerald-900",
+        badgeBg: "bg-emerald-100 text-emerald-700",
+        members: [
+          "李彥宏", "林昱安", "蔡典宇", "劉宇桐",
+          "石啟宏", "劉峻廷", "林富民", "徐杰騏",
+          "張廷維", "何紹愷", "陳宗佑", "李祐任"
+        ]
+      },
+      {
+        id: "grade-2",
+        key: "g2",
+        label: "二年級",
+        colorDot: "bg-amber-500",
+        headerBg: "bg-amber-50 border-amber-200 text-amber-900",
+        badgeBg: "bg-amber-100 text-amber-700",
+        members: [
+          "陳宥森", "王子銓", "陳鈺鈞", "余恩緯",
+          "方宥霖", "游致維", "王昶爲", "范子軒",
+          "陳品亦", "陳誠泰"
+        ]
+      },
+      {
+        id: "grade-1",
+        key: "g1",
+        label: "一年級",
+        colorDot: "bg-rose-500",
+        headerBg: "bg-rose-50 border-rose-200 text-rose-900",
+        badgeBg: "bg-rose-100 text-rose-700",
+        members: [
+          "蘇威綸", "周宇棟", "徐浩宴", "陳柏愷",
+          "徐偉哲"
+        ]
+      }
+    ];
+
+    // 扁平化四中隊名單（36員）
+    const SQ4_ALL_MEMBERS = SQ4_GRADES.flatMap(g => g.members);
+
+    // 固定報告詞（條件5）
+    const OPENING_PHRASE = "報告各位學長學姊";
+    const CLOSING_PHRASE = "報告完畢，謝謝各位學長學姊";
+
+    // =========================================================================
+    // 2. 姓名正規化與比對工具
+    // =========================================================================
+
+    function normalizeName(str) {
+      return (str || "")
+        .replace(/[\s\u3000]+/g, "")
+        .replace(/黄/g, "黃")
+        .replace(/為/g, "爲")
+        .replace(/鍾/g, "鐘")
+        .replace(/歷/g, "厤");
+    }
+
+    // 建立「正規化姓名 -> 原始顯示姓名」對照表
+    const FULL_BAND_MAP = new Map();
+    FULL_BAND_ROSTER.forEach(displayName => {
+      FULL_BAND_MAP.set(normalizeName(displayName), displayName);
+    });
+
+    const NORMALIZED_FULL_NAMES = Array.from(FULL_BAND_MAP.keys());
+
+    // =========================================================================
+    // 3. 應用程式狀態管理 (State & LocalStorage)
+    // =========================================================================
+
+    const STORAGE_KEY = "band_incident_system_v1";
+
+    let appState = {
+      scope: "all",       // 'all' (全中隊統整) | 'sq4' (四中隊調查)
+      mode: "single",     // 'single' (單一記事本) | '78' (78節事故)
+      incidentTitle: "",  // 單一記事本事故名稱 (無預設值)
+      squadronTexts: ["", "", "", ""], // 一中隊 ~ 四中隊文字
+      sq4Survey: {}       // { [memberName]: { rSingle, tSingle, r7, t7, r8, t8 } }
+    };
+
+    // 初始化四中隊調查狀態結構
+    function ensureSq4SurveyStructure() {
+      SQ4_ALL_MEMBERS.forEach(name => {
+        if (!appState.sq4Survey[name]) {
+          appState.sq4Survey[name] = {
+            rSingle: false,
+            tSingle: "",
+            r7: false,
+            t7: "",
+            r8: false,
+            t8: ""
+          };
+        }
+      });
+    }
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          appState = { ...appState, ...parsed };
+        }
+      } catch (e) {
+        console.error("讀取暫存資料失敗:", e);
+      }
+      ensureSq4SurveyStructure();
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      } catch (e) {
+        console.error("儲存資料失敗:", e);
+      }
+    }
+
+    // =========================================================================
+    // 4. UI 切換與互動處理
+    // =========================================================================
+
+    function setScope(scope) {
+      appState.scope = scope;
+      saveState();
+      syncUI();
+    }
+
+    function setMode(mode) {
+      appState.mode = mode;
+      saveState();
+      syncUI();
+    }
+
+    function handleTitleChange(val) {
+      appState.incidentTitle = val;
+      saveState();
+      updateReportOutput();
+    }
+
+    function handleSquadronInput(index, val) {
+      appState.squadronTexts[index] = val;
+      saveState();
+      updateReportOutput();
+    }
+
+    function clearSquadronInput(index) {
+      appState.squadronTexts[index] = "";
+      const el = document.getElementById(`sq-input-${index}`);
+      if (el) el.value = "";
+      saveState();
+      updateReportOutput();
+    }
+
+    function scrollToGrade(gradeElementId) {
+      const target = document.getElementById(gradeElementId);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+
+    function syncUI() {
+      // 1. 統整範圍按鈕樣式
+      const btnAll = document.getElementById("scope-all");
+      const btnSq4 = document.getElementById("scope-sq4");
+      if (appState.scope === "all") {
+        btnAll.className = "py-2.5 px-3 rounded-lg text-sm font-semibold transition-all cursor-pointer bg-white text-indigo-600 shadow-sm";
+        btnSq4.className = "py-2.5 px-3 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:text-slate-900";
+      } else {
+        btnSq4.className = "py-2.5 px-3 rounded-lg text-sm font-semibold transition-all cursor-pointer bg-white text-indigo-600 shadow-sm";
+        btnAll.className = "py-2.5 px-3 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:text-slate-900";
+      }
+
+      // 2. 統整節次按鈕樣式
+      const btnSingle = document.getElementById("mode-single");
+      const btn78 = document.getElementById("mode-78");
+      if (appState.mode === "single") {
+        btnSingle.className = "py-2.5 px-3 rounded-lg text-sm font-semibold transition-all cursor-pointer bg-white text-indigo-600 shadow-sm";
+        btn78.className = "py-2.5 px-3 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:text-slate-900";
+      } else {
+        btn78.className = "py-2.5 px-3 rounded-lg text-sm font-semibold transition-all cursor-pointer bg-white text-indigo-600 shadow-sm";
+        btnSingle.className = "py-2.5 px-3 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:text-slate-900";
+      }
+
+      // 3. 事故名稱欄位：僅「單一記事本」顯示，78節固定名稱不需填寫
+      const titleContainer = document.getElementById("incident-title-container");
+      const titleInput = document.getElementById("incident-title-input");
+      if (appState.mode === "single") {
+        titleContainer.classList.remove("hidden");
+        titleInput.value = appState.incidentTitle || "";
+      } else {
+        titleContainer.classList.add("hidden");
+      }
+
+      // 4. 顯示對應工作區與頂部年級進度條
+      const viewAll = document.getElementById("view-all-squadrons");
+      const viewSq4 = document.getElementById("view-sq4-survey");
+      const stickyBar = document.getElementById("sq4-sticky-bar");
+      const allSqHint = document.getElementById("all-sq-hint");
+
+      if (appState.scope === "all") {
+        viewAll.classList.remove("hidden");
+        viewSq4.classList.add("hidden");
+        stickyBar.classList.add("hidden");
+
+        allSqHint.textContent = appState.mode === "78"
+          ? "每中隊請貼上同一串 7、8 節事故文字"
+          : "請貼上各中隊事故回報文字";
+
+        for (let i = 0; i < 4; i++) {
+          const ta = document.getElementById(`sq-input-${i}`);
+          if (ta) {
+            ta.value = appState.squadronTexts[i] || "";
+            ta.placeholder = appState.mode === "78"
+              ? `請貼上${["一", "二", "三", "四"][i]}中隊 7、8 節事故文字...`
+              : `請貼上${["一", "二", "三", "四"][i]}中隊事故回報...`;
+          }
+        }
+      } else {
+        viewAll.classList.add("hidden");
+        viewSq4.classList.remove("hidden");
+        stickyBar.classList.remove("hidden");
+        renderSq4Survey();
+        updateSq4ProgressBar();
+      }
+
+      // 5. 78節獨立複製按鈕顯示切換
+      const subCopyBtns = document.getElementById("copy-78-sub-buttons");
+      if (appState.mode === "78") {
+        subCopyBtns.classList.remove("hidden");
+      } else {
+        subCopyBtns.classList.add("hidden");
+      }
+
+      // 6. 更新最終輸出報告
+      updateReportOutput();
+    }
+
+    // =========================================================================
+    // 5. 四中隊個別調查渲染與進度條計算
+    // =========================================================================
+
+    function renderSq4Survey() {
+      const wrapper = document.getElementById("sq4-grades-wrapper");
+      const is78 = appState.mode === "78";
+
+      wrapper.innerHTML = SQ4_GRADES.map(grade => {
+        const rowsHtml = grade.members.map(member => {
+          const data = appState.sq4Survey[member];
+
+          if (!is78) {
+            // 單一記事本：每人僅有「勾選已回覆」與「事故輸入框」
+            return `
+              <div class="p-3 sm:px-4 sm:py-3 flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-4 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70 transition-colors">
+                <div class="flex items-center justify-between sm:w-44 shrink-0">
+                  <span class="font-bold text-slate-800 text-sm sm:text-base">${member}</span>
+                  <label class="inline-flex items-center gap-2 cursor-pointer select-none px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200/70 transition-colors">
+                    <input
+                      type="checkbox"
+                      ${data.rSingle ? "checked" : ""}
+                      onchange="toggleSq4Reply('${member}', 'single', this.checked)"
+                      class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                    />
+                    <span class="text-xs font-semibold text-slate-700">已回覆</span>
+                  </label>
+                </div>
+                <div class="flex-1">
+                  <input
+                    type="text"
+                    value="${escapeHtml(data.tSingle)}"
+                    placeholder="輸入事故（無事故留白即可）"
+                    oninput="inputSq4Incident('${member}', 'single', this.value)"
+                    class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+                  />
+                </div>
+              </div>
+            `;
+          } else {
+            // 78節事故：依年級分類，每人僅有第七節與第八節的「勾選已回覆」與「事故輸入框」
+            return `
+              <div class="p-3 sm:px-4 sm:py-3.5 space-y-2.5 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70 transition-colors">
+                <div class="font-bold text-slate-800 text-sm sm:text-base">${member}</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  <!-- 第七節 -->
+                  <div class="flex items-center gap-2">
+                    <label class="inline-flex items-center gap-1.5 shrink-0 cursor-pointer select-none px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200/70 transition-colors">
+                      <input
+                        type="checkbox"
+                        ${data.r7 ? "checked" : ""}
+                        onchange="toggleSq4Reply('${member}', 'p7', this.checked)"
+                        class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                      />
+                      <span class="text-xs font-semibold text-slate-700">7節已回覆</span>
+                    </label>
+                    <input
+                      type="text"
+                      value="${escapeHtml(data.t7)}"
+                      placeholder="第七節事故（無事故留白）"
+                      oninput="inputSq4Incident('${member}', 'p7', this.value)"
+                      class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+                    />
+                  </div>
+                  <!-- 第八節 -->
+                  <div class="flex items-center gap-2">
+                    <label class="inline-flex items-center gap-1.5 shrink-0 cursor-pointer select-none px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200/70 transition-colors">
+                      <input
+                        type="checkbox"
+                        ${data.r8 ? "checked" : ""}
+                        onchange="toggleSq4Reply('${member}', 'p8', this.checked)"
+                        class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                      />
+                      <span class="text-xs font-semibold text-slate-700">8節已回覆</span>
+                    </label>
+                    <input
+                      type="text"
+                      value="${escapeHtml(data.t8)}"
+                      placeholder="第八節事故（無事故留白）"
+                      oninput="inputSq4Incident('${member}', 'p8', this.value)"
+                      class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+        }).join("");
+
+        return `
+          <div id="${grade.id}" class="grade-anchor bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="px-4 py-3 border-b flex items-center justify-between ${grade.headerBg}">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full ${grade.colorDot}"></span>
+                <h3 class="font-bold text-sm sm:text-base">${grade.label}</h3>
+              </div>
+              <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full ${grade.badgeBg}">
+                共 ${grade.members.length} 員
+              </span>
+            </div>
+            <div>${rowsHtml}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function toggleSq4Reply(member, period, checked) {
+      const record = appState.sq4Survey[member];
+      if (!record) return;
+      if (period === "single") record.rSingle = checked;
+      if (period === "p7") record.r7 = checked;
+      if (period === "p8") record.r8 = checked;
+      saveState();
+      updateSq4ProgressBar();
+      updateReportOutput();
+    }
+
+    function inputSq4Incident(member, period, value) {
+      const record = appState.sq4Survey[member];
+      if (!record) return;
+      const hasText = value.trim().length > 0;
+
+      if (period === "single") {
+        record.tSingle = value;
+        if (hasText && !record.rSingle) {
+          record.rSingle = true;
+          syncMemberCheckbox(member, "single", true);
+        }
+      } else if (period === "p7") {
+        record.t7 = value;
+        if (hasText && !record.r7) {
+          record.r7 = true;
+          syncMemberCheckbox(member, "p7", true);
+        }
+      } else if (period === "p8") {
+        record.t8 = value;
+        if (hasText && !record.r8) {
+          record.r8 = true;
+          syncMemberCheckbox(member, "p8", true);
+        }
+      }
+
+      saveState();
+      updateSq4ProgressBar();
+      updateReportOutput();
+    }
+
+    // 同步勾選框狀態而不重建整個 DOM（保留輸入框焦點）
+    function syncMemberCheckbox(member, period, checked) {
+      const gradeObj = SQ4_GRADES.find(g => g.members.includes(member));
+      if (!gradeObj) return;
+      const container = document.getElementById(gradeObj.id);
+      if (!container) return;
+      const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+      const memberIdx = gradeObj.members.indexOf(member);
+      if (memberIdx === -1) return;
+
+      if (appState.mode === "single") {
+        if (checkboxes[memberIdx]) checkboxes[memberIdx].checked = checked;
+      } else {
+        const cbIdx = memberIdx * 2 + (period === "p7" ? 0 : 1);
+        if (checkboxes[cbIdx]) checkboxes[cbIdx].checked = checked;
+      }
+    }
+
+    function isMemberReplied(member) {
+      const d = appState.sq4Survey[member];
+      if (!d) return false;
+      if (appState.mode === "single") {
+        return d.rSingle || d.tSingle.trim().length > 0;
+      } else {
+        // 78節模式：兩節皆已回覆（或皆已填寫）視為完成
+        const ok7 = d.r7 || d.t7.trim().length > 0;
+        const ok8 = d.r8 || d.t8.trim().length > 0;
+        return ok7 && ok8;
+      }
+    }
+
+    function updateSq4ProgressBar() {
+      let totalReplied = 0;
+
+      SQ4_GRADES.forEach(grade => {
+        const count = grade.members.filter(m => isMemberReplied(m)).length;
+        totalReplied += count;
+
+        // 佔總人數 36 員的寬度比例
+        const widthPct = (count / 36) * 100;
+        const progEl = document.getElementById(`prog-${grade.key}`);
+        if (progEl) progEl.style.width = `${widthPct}%`;
+
+        const badgeEl = document.getElementById(`badge-${grade.key}`);
+        if (badgeEl) badgeEl.textContent = `${count}/${grade.members.length}`;
+      });
+
+      const totalEl = document.getElementById("sq4-total-replied");
+      const pctEl = document.getElementById("sq4-total-percent");
+      if (totalEl) totalEl.textContent = totalReplied;
+      if (pctEl) pctEl.textContent = `${Math.round((totalReplied / 36) * 100)}%`;
+    }
+
+    // =========================================================================
+    // 6. 全中隊文字解析引擎 (Smart Squadron Parser)
+    // =========================================================================
+
+    /**
+     * 將單一中隊在 78 節模式下的同一串文字，拆分為「第七節區塊」與「第八節區塊」
+     */
+    function split78Sections(rawText) {
+      const text = (rawText || "").trim();
+      if (!text) return { p7: "", p8: "" };
+
+      const p7Regex = /(?:^|\n)\s*第?[七7]節[^\n]*/;
+      const p8Regex = /(?:^|\n)\s*第?[八8]節[^\n]*/;
+
+      const m7 = text.match(p7Regex);
+      const m8 = text.match(p8Regex);
+
+      if (m7 && m8) {
+        const idx7 = m7.index;
+        const idx8 = m8.index;
+        if (idx7 < idx8) {
+          return {
+            p7: text.slice(idx7, idx8).trim(),
+            p8: text.slice(idx8).trim()
+          };
+        } else {
+          return {
+            p8: text.slice(idx8, idx7).trim(),
+            p7: text.slice(idx7).trim()
+          };
+        }
+      } else if (m7 && !m8) {
+        return { p7: text.slice(m7.index).trim(), p8: "" };
+      } else if (!m7 && m8) {
+        return { p7: "", p8: text.slice(m8.index).trim() };
+      }
+
+      // 若未標註第七節/第八節，預設兩節皆套用該串事故
+      return { p7: text, p8: text };
+    }
+
+    /**
+     * 從單一區塊文字中解析出 { displayName -> reason }
+     * 自動忽略「名單：」之後的實到人員名單
+     */
+    function parseIncidentBlock(blockText) {
+      const result = new Map(); // normalizedName -> reason
+      if (!blockText || !blockText.trim()) return result;
+
+      // 截斷「名單：」或「名單:」之後的內容，避免誤抓實到人員
+      const cutoffMatch = blockText.match(/(?:^|\n)\s*名單\s*[:：]/);
+      const effectiveText = cutoffMatch ? blockText.slice(0, cutoffMatch.index) : blockText;
+
+      const lines = effectiveText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      let currentReason = "";
+
+      for (const line of lines) {
+        // 跳過純統計或報告詞行
+        if (/^(報告|應到|實到|合計|軍樂隊|[一二三四]中隊|第?[七八78]節|社團課|升旗|練習|除$)/.test(line)) {
+          // 若該行純粹是標題（不含姓名），重置或略過
+          const namesOnHeader = extractNamesFromSegment(line);
+          if (namesOnHeader.length === 0) {
+            if (/^合計/.test(line)) currentReason = "";
+            continue;
+          }
+        }
+
+        // 格式 1：「2員校慶籃 鐘偉峻 徐承煒」或「20員閱兵」
+        const countReasonMatch = line.match(/^(\d+)\s*員\s*(.+)$/);
+        if (countReasonMatch) {
+          const rest = countReasonMatch[2].trim();
+          const { reason, names } = splitReasonAndNames(rest);
+          if (reason) {
+            currentReason = reason;
+          }
+          names.forEach(normName => {
+            if (currentReason) result.set(normName, currentReason);
+          });
+          continue;
+        }
+
+        // 格式 2：「閱兵：陳建厤、吳漾」
+        const colonMatch = line.match(/^([^:：\d]{1,15})\s*[:：]\s*(.+)$/);
+        if (colonMatch) {
+          const potentialReason = colonMatch[1].trim();
+          if (potentialReason !== "名單") {
+            currentReason = potentialReason;
+            const names = extractNamesFromSegment(colonMatch[2]);
+            names.forEach(normName => {
+              result.set(normName, currentReason);
+            });
+            continue;
+          }
+        }
+
+        // 格式 3：延續上一行事故原因的多行名單，或「姓名 事故」單行格式
+        const foundNames = extractNamesFromSegment(line);
+        if (foundNames.length > 0) {
+          if (currentReason) {
+            foundNames.forEach(normName => result.set(normName, currentReason));
+          } else {
+            // 嘗試擷取姓名以外的文字作為事故原因（例如：「盧坤廷 赴美」或「盧坤廷(赴美)」）
+            let leftover = line;
+            foundNames.forEach(normName => {
+              const disp = FULL_BAND_MAP.get(normName) || normName;
+              const charPattern = disp.replace(/\s+/g, "").split("").join("\\s*");
+              leftover = leftover.replace(new RegExp(charPattern, "g"), " ");
+            });
+            leftover = leftover.replace(/[()（）【】、,，.。:：\-]/g, " ").trim();
+            const inferredReason = leftover || "其他事故";
+            foundNames.forEach(normName => result.set(normName, inferredReason));
+          }
+        }
+      }
+
+      return result;
+    }
+
+    /**
+     * 將「校慶籃 鐘偉峻 徐承煒」拆分為 { reason: "校慶籃", names: ["鐘偉峻", "徐承煒"] }
+     */
+    function splitReasonAndNames(segment) {
+      const tokens = segment.split(/[\s、,，/]+/).filter(Boolean);
+      const reasonParts = [];
+      const names = [];
+      let foundFirstName = false;
+
+      for (const token of tokens) {
+        const matchedInToken = extractNamesFromSegment(token);
+        if (matchedInToken.length > 0) {
+          foundFirstName = true;
+          matchedInToken.forEach(n => names.push(n));
+        } else if (!foundFirstName) {
+          reasonParts.push(token);
+        } else {
+          // 若姓名後方仍有非姓名文字，補充進原因
+          if (reasonParts.length === 0) reasonParts.push(token);
+        }
+      }
+
+      return {
+        reason: reasonParts.join(""),
+        names
+      };
+    }
+
+    /**
+     * 從文字片段中依出現順序精準萃取出 68 員名單內的成員
+     */
+    function extractNamesFromSegment(segment) {
+      const cleaned = normalizeName(segment);
+      const hits = [];
+
+      NORMALIZED_FULL_NAMES.forEach(normName => {
+        let searchIdx = 0;
+        while (true) {
+          const foundIdx = cleaned.indexOf(normName, searchIdx);
+          if (foundIdx === -1) break;
+          hits.push({ index: foundIdx, normName });
+          searchIdx = foundIdx + normName.length;
+        }
+      });
+
+      hits.sort((a, b) => a.index - b.index);
+      const uniqueOrdered = [];
+      hits.forEach(h => {
+        if (!uniqueOrdered.includes(h.normName)) {
+          uniqueOrdered.push(h.normName);
+        }
+      });
+      return uniqueOrdered;
+    }
+
+    // =========================================================================
+    // 7. 報告組裝與格式化輸出
+    // =========================================================================
+
+    /**
+     * 將人員陣列每 4 人排成一行，以空白分隔
+     */
+    function formatRosterLines(members) {
+      if (!members || members.length === 0) return "無";
+      const lines = [];
+      for (let i = 0; i < members.length; i += 4) {
+        lines.push(members.slice(i, i + 4).join(" "));
+      }
+      return lines.join("\n");
+    }
+
+    /**
+     * 根據固定名單、事故對照表，產出單一完整回報字串
+     */
+    function buildFormattedReport({ unitName, incidentName, roster, incidentByNormName }) {
+      const totalExpected = roster.length;
+      const reasonGroups = new Map(); // reason -> [displayName, ...]
+      const presentMembers = [];
+      let totalAbsent = 0;
+
+      // 嚴格按照原始名單順序遍歷
+      roster.forEach(displayName => {
+        const norm = normalizeName(displayName);
+        if (incidentByNormName.has(norm)) {
+          const reason = incidentByNormName.get(norm);
+          if (!reasonGroups.has(reason)) {
+            reasonGroups.set(reason, []);
+          }
+          reasonGroups.get(reason).push(displayName);
+          totalAbsent++;
+        } else {
+          presentMembers.push(displayName);
+        }
+      });
+
+      const totalPresent = totalExpected - totalAbsent;
+      const out = [];
+
+      out.push(OPENING_PHRASE);
+      if (unitName) out.push(unitName);
+      out.push(incidentName || "（未填寫事故名稱）");
+      out.push(`應到${totalExpected}員`);
+
+      if (totalAbsent === 0) {
+        out.push("無事故");
+        out.push(`實到${totalPresent}員`);
+      } else {
+        out.push("除");
+        reasonGroups.forEach((names, reason) => {
+          if (names.length >= 4) {
+            out.push(`${names.length}員${reason}`);
+            out.push(formatRosterLines(names));
+          } else {
+            out.push(`${names.length}員${reason} ${names.join(" ")}`);
+          }
+        });
+        out.push(`合計${totalAbsent}員事故外`);
+        out.push(`實到${totalPresent}員`);
+      }
+
+      out.push("");
+      out.push("名單：");
+      out.push(formatRosterLines(presentMembers));
+      out.push(`合計${totalPresent}員`);
+      out.push(CLOSING_PHRASE);
+
+      return out.join("\n");
+    }
+
+    /**
+     * 取得目前狀態下的完整報告內容（支援單一與 78 節）
+     */
+    function generateReports() {
+      const isAll = appState.scope === "all";
+      const is78 = appState.mode === "78";
+
+      if (isAll) {
+        // 全中隊統整（68員）
+        if (!is78) {
+          const mergedIncidents = new Map();
+          appState.squadronTexts.forEach(txt => {
+            const parsed = parseIncidentBlock(txt);
+            parsed.forEach((reason, normName) => mergedIncidents.set(normName, reason));
+          });
+
+          const singleText = buildFormattedReport({
+            unitName: "",
+            incidentName: appState.incidentTitle.trim() ? `軍樂隊${appState.incidentTitle.trim()}` : "軍樂隊",
+            roster: FULL_BAND_ROSTER,
+            incidentByNormName: mergedIncidents
+          });
+          return { all: singleText, p7: singleText, p8: "" };
+        } else {
+          const mergedP7 = new Map();
+          const mergedP8 = new Map();
+
+          appState.squadronTexts.forEach(txt => {
+            const { p7, p8 } = split78Sections(txt);
+            parseIncidentBlock(p7).forEach((reason, normName) => mergedP7.set(normName, reason));
+            parseIncidentBlock(p8).forEach((reason, normName) => mergedP8.set(normName, reason));
+          });
+
+          const rep7 = buildFormattedReport({
+            unitName: "",
+            incidentName: "軍樂隊第七節事故",
+            roster: FULL_BAND_ROSTER,
+            incidentByNormName: mergedP7
+          });
+
+          const rep8 = buildFormattedReport({
+            unitName: "",
+            incidentName: "軍樂隊第八節事故",
+            roster: FULL_BAND_ROSTER,
+            incidentByNormName: mergedP8
+          });
+
+          return {
+            all: `${rep7}\n\n====================\n\n${rep8}`,
+            p7: rep7,
+            p8: rep8
+          };
+        }
+      } else {
+        // 四中隊調查（36員）
+        if (!is78) {
+          const incidents = new Map();
+          SQ4_ALL_MEMBERS.forEach(member => {
+            const d = appState.sq4Survey[member];
+            const cleanReason = (d.tSingle || "").trim().replace(/^\d+員/, "");
+            if (cleanReason) {
+              incidents.set(normalizeName(member), cleanReason);
+            } else if (!d.rSingle) {
+              // 條件4：若都沒有填，則事故為「已聯絡未回覆」
+              incidents.set(normalizeName(member), "已聯絡未回覆");
+            }
+          });
+
+          const singleText = buildFormattedReport({
+            unitName: "四中隊軍樂隊",
+            incidentName: appState.incidentTitle.trim() || "（未填寫事故名稱）",
+            roster: SQ4_ALL_MEMBERS,
+            incidentByNormName: incidents
+          });
+          return { all: singleText, p7: singleText, p8: "" };
+        } else {
+          const incidents7 = new Map();
+          const incidents8 = new Map();
+
+          SQ4_ALL_MEMBERS.forEach(member => {
+            const d = appState.sq4Survey[member];
+            const norm = normalizeName(member);
+
+            const r7Text = (d.t7 || "").trim().replace(/^\d+員/, "");
+            if (r7Text) {
+              incidents7.set(norm, r7Text);
+            } else if (!d.r7) {
+              incidents7.set(norm, "已聯絡未回覆");
+            }
+
+            const r8Text = (d.t8 || "").trim().replace(/^\d+員/, "");
+            if (r8Text) {
+              incidents8.set(norm, r8Text);
+            } else if (!d.r8) {
+              incidents8.set(norm, "已聯絡未回覆");
+            }
+          });
+
+          const rep7 = buildFormattedReport({
+            unitName: "四中隊軍樂隊",
+            incidentName: "第七節事故",
+            roster: SQ4_ALL_MEMBERS,
+            incidentByNormName: incidents7
+          });
+
+          const rep8 = buildFormattedReport({
+            unitName: "四中隊軍樂隊",
+            incidentName: "第八節事故",
+            roster: SQ4_ALL_MEMBERS,
+            incidentByNormName: incidents8
+          });
+
+          return {
+            all: `${rep7}\n\n====================\n\n${rep8}`,
+            p7: rep7,
+            p8: rep8
+          };
+        }
+      }
+    }
+
+    function updateReportOutput() {
+      const outputEl = document.getElementById("output-report");
+      if (!outputEl) return;
+      const { all } = generateReports();
+      outputEl.value = all;
+    }
+
+    // =========================================================================
+    // 8. 剪貼簿複製、清空確認視窗與提示訊息
+    // =========================================================================
+
+    function copyReport(targetKey) {
+      const reports = generateReports();
+      const textToCopy = reports[targetKey] || reports.all;
+
+      // 使用暫存 textarea 搭配 document.execCommand('copy') 確保跨環境與 iFrame 相容性
+      const tempArea = document.createElement("textarea");
+      tempArea.value = textToCopy;
+      tempArea.style.position = "fixed";
+      tempArea.style.left = "-9999px";
+      document.body.appendChild(tempArea);
+      tempArea.select();
+      tempArea.setSelectionRange(0, tempArea.value.length);
+
+      let success = false;
+      try {
+        success = document.execCommand("copy");
+      } catch (err) {
+        console.error("複製失敗:", err);
+      }
+      document.body.removeChild(tempArea);
+
+      if (success) {
+        const label = targetKey === "p7" ? "第七節事故" : targetKey === "p8" ? "第八節事故" : "統整結果";
+        showToast(`已複製${label}到剪貼簿`);
+      } else {
+        showToast("複製失敗，請手動選取複製");
+      }
+    }
+
+    let toastTimer = null;
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      const msgEl = document.getElementById("toast-msg");
+      if (!toast || !msgEl) return;
+
+      msgEl.textContent = message;
+      toast.classList.remove("opacity-0");
+      toast.classList.add("opacity-100");
+
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove("opacity-100");
+        toast.classList.add("opacity-0");
+      }, 2200);
+    }
+
+    function escapeHtml(str) {
+      return (str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // 清空確認對話框事件綁定
+    function initModalEvents() {
+      const modal = document.getElementById("clear-modal");
+      const btnOpen = document.getElementById("btn-open-clear-modal");
+      const btnCancel = document.getElementById("btn-cancel-clear");
+      const btnConfirm = document.getElementById("btn-confirm-clear");
+
+      btnOpen.addEventListener("click", () => {
+        modal.classList.remove("hidden");
+      });
+
+      btnCancel.addEventListener("click", () => {
+        modal.classList.add("hidden");
+      });
+
+      btnConfirm.addEventListener("click", () => {
+        appState.incidentTitle = "";
+        appState.squadronTexts = ["", "", "", ""];
+        appState.sq4Survey = {};
+        ensureSq4SurveyStructure();
+        saveState();
+        syncUI();
+        modal.classList.add("hidden");
+        showToast("已清空所有填寫內容");
+      });
+    }
+
+    // =========================================================================
+    // 9. 初始化啟動
+    // =========================================================================
+    window.addEventListener("DOMContentLoaded", () => {
+      loadState();
+      initModalEvents();
+      syncUI();
+    });
+  </script>
+</body>
+</html>
